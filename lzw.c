@@ -5,7 +5,7 @@
 **  Compresses data using LZW algorithm.
 **  
 **  Author: V.Antonenko
-**
+**  Modified by: Andranik Andy Tonoyan
 **
 ******************************************************************************/
 #include <stdlib.h>
@@ -26,7 +26,7 @@ typedef struct _bitbuffer
 bitbuffer_t;
 
 // LZW node, represents a string
-typedef struct _node//Keep prev, first, next order in dictionary file!
+typedef struct _node
 {
    code_t  prev;   // prefix code
    code_t  first;  // firts child code
@@ -41,7 +41,6 @@ FILE *dictFile;
 // LZW context
 typedef struct _lzw
 {
-   // node_t        dict[DICT_SIZE];  // code dictionary
    unsigned      max;                              // maximal code
    unsigned      codesize;                 // number of bits in code
    bitbuffer_t   bb;                               // bit-buffer struct
@@ -174,31 +173,17 @@ static void lzw_flushbits(lzw_t *ctx)
 void lzw_init(lzw_t *ctx, void *stream)
 {
    unsigned i;
+   char row[8];
 
    memset(ctx, 0, sizeof(*ctx));
 
    for (i = 0; i < 256; i++)
    {
-      //done
-      // ctx->dict[i].prev = NODE_NULL;
-      // ctx->dict[i].first = NODE_NULL;
-      // ctx->dict[i].next = NODE_NULL;
-      // ctx->dict[i].ch = i;
-
-      /*
-         Represent NODE_NULL's as 2 characters in the dictionary file instead
-         of representing up to 5 digit numbers as 5 chars each
-      */
       short negOne = -1; 
       unsigned char *tmp = (unsigned char*) (&negOne);
-      fprintf(dictFile, "%c%c%c%c%c%c%c", 
-               tmp[0],
-               tmp[1],
-               tmp[0],
-               tmp[1],
-               tmp[0],
-               tmp[1],
-               i);
+
+      sprintf(row, "%c%c%c%c%c%c%c", tmp[0],tmp[1],tmp[0],tmp[1],tmp[0],tmp[1],i);
+      fwrite(row, 7, 1, dictFile);
    }
 
    ctx->max = i-1;
@@ -225,8 +210,6 @@ static code_t lzw_find_str(lzw_t *ctx, code_t code, char c)
    char ch;
    char dictRow[7];
 
-   // nc = ctx->dict[code].first
-
    fseek(dictFile, code * CHARS_IN_DICT_ROW, SEEK_SET);
    fread(dictRow, CHARS_IN_DICT_ROW, 1, dictFile);
 
@@ -235,8 +218,6 @@ static code_t lzw_find_str(lzw_t *ctx, code_t code, char c)
 
    while (nc != NODE_NULL)
    {
-      // ctx->dict[nc].prev
-      // ctx->dict[nc].ch
 
       fseek(dictFile, nc * CHARS_IN_DICT_ROW, SEEK_SET);
       fread(dictRow, CHARS_IN_DICT_ROW, 1, dictFile);
@@ -251,14 +232,6 @@ static code_t lzw_find_str(lzw_t *ctx, code_t code, char c)
       // nc = ctx->dict[nc].next
       nc = (dictRow[5] << 8) | dictRow[4];
    }
-
-
-
-   // for (nc = ctx->dict[code].first; nc != NODE_NULL; nc = ctx->dict[nc].next)
-   // {
-   //    if (code == ctx->dict[nc].prev && c == ctx->dict[nc].ch)
-   //       return nc;
-   // }
 
    return NODE_NULL;
 }
@@ -286,8 +259,6 @@ static unsigned lzw_get_str(lzw_t *ctx, code_t code, unsigned char buff[], unsig
 
    while (code != NODE_NULL && i)
    {
-      // buff[--i] = ctx->dict[code].ch;
-      // code = ctx->dict[code].prev;
 
       fseek(dictFile, code * CHARS_IN_DICT_ROW, SEEK_SET);
       fread(dictRow, CHARS_IN_DICT_ROW, 1, dictFile);
@@ -321,8 +292,6 @@ static code_t lzw_add_str(lzw_t *ctx, code_t code, char c)
    if (ctx->max >= DICT_SIZE)
       return NODE_NULL;
 
-   
-   //YOU CAN OVERRIDE THE VALUES! YAY :D
    short prev, first;
    unsigned char *tmp;
    char dictRow[7];
@@ -361,14 +330,6 @@ static code_t lzw_add_str(lzw_t *ctx, code_t code, char c)
    fwrite(newValue, 2, 1, dictFile);
    
    fflush(dictFile);
-   // ctx->dict[ctx->max].prev = code;
-   // ctx->dict[ctx->max].first = NODE_NULL;
-   // ctx->dict[ctx->max].next = ctx->dict[code].first;
-   // ctx->dict[ctx->max].ch = c;
-
-   // ctx->dict[code].first = ctx->max;
-
-   
 
    return ctx->max;
 }
